@@ -1,0 +1,559 @@
+---
+title: "Geospatial Analytics for Social Good - Nigeria Water Scarcity Issue"
+editor: visual
+theme: materia
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+---
+
+## Overview
+
+------------------------------------------------------------------------
+
+Water is an important resource to mankind. Clean and accessible water is critical to human health. It provides a healthy environment, a sustainable economy, reduces poverty and ensures peace and security. Yet over 40% of the global population does not have access to sufficient clean water. The lack of water poses a major threat to several sectors, including food security. Agriculture uses about 70% of the world's accessible freshwater.
+
+Developing countries are most affected by water shortages and poor water quality. Up to 80% of illnesses in the developing world are linked to inadequate water and sanitation. Despite technological advancement, providing clean water to the rural community is still a major development issues in many countries globally, especially countries in the Africa continent.
+
+Poor access to improved water and sanitation in Nigeria remains a major contributing factor to high morbidity and mortality rates among children under five. The use of contaminated drinking water and poor sanitary conditions result in increased vulnerability to water-borne diseases, including diarrhoea which leads to deaths of more than 70,000 children under five annually.
+
+### Objective
+
+Geospatial analytics hold tremendous potential to address this complex problem. In this study, we aim to apply appropriate global and local measures of spatial Association techniques to reveal spatial patterns of **Not Functional water points**.
+
+## Data Preparation
+
+------------------------------------------------------------------------
+
+The R packages we'll use for this analysis are:
+
+-   **sf**: used for importing, managing, and processing geospatial data
+
+-   **tidyverse**: a common but important collection of packages for data science tasks
+
+-   **tmap**: used for creating thematic maps for spatial data visualisaion, such as choropleth and bubble maps
+
+-   **spdep**: provides a collect of functions to create spatial weights matrix objects from polygons and point features.
+
+-   **funModeling** will be used for rapid Exploratory Data Analysis
+
+```{r}
+pacman::p_load(sf, tidyverse, tmap, spdep, funModeling)
+```
+
+Two data sets will be used in this study:
+
+-   Nigeria water point data file compiled in WPDx Data Standard from [Humanitarian Data Exchange Portal](https://data.humdata.org/dataset/geoboundaries-admin-boundaries-for-nigeria)
+
+-   Nigeria Administraive boundary data [WPDx Global Data Repositories](https://www.waterpointdata.org/access-data/)
+
+*We would start by using st_read()* and *filter()* to import the water point data
+
+```{r, eval=FALSE}
+wp <- st_read(dsn = "data/geospatial",
+              layer = "geo_export",
+              crs = 4326) %>%
+  filter(clean_coun == "Nigeria")
+```
+
+Next, we use write_rds() of readr package is used to save the extracted sf data table (i.e. wp) into an output file in rds data format. The output file is called *wp_nga.rds* and it is saved in *data*/geospatial/ sub-folder.
+
+```{r, eval=FALSE}
+write_rds(wp, "data/rds/wp_nga.rds")
+
+```
+
+Now, we would import the Nigeria LGA Boundary data into our R environment by using the code chunk below
+
+```{r, eval=FALSE}
+nga <- st_read(dsn = "data/geospatial",
+               layer = "geoBoundaries",
+               crs = 4326)
+```
+
+### Data Wrangling
+
+------------------------------------------------------------------------
+
+Data wrangling is the process of removing errors and combining complex data sets to make them more accessible and easier to analyze. Due to the rapid expansion of the amount of data and data sources available today, storing and organizing large quantities of data for analysis is becoming increasingly necessary.
+
+When viewing the nga data, we had observed that the data set contains NA values. these values have to be removed in order for us to categorise the values properly. we will be using *replace_na()* to recoding NA values into string
+
+```{r, eval=FALSE}
+wp_nga <- read_rds("data/rds/wp_nga.rds") %>%
+  mutate(status_cle = replace_na(status_cle, "Unknown"))
+```
+
+We can do a quick visual check on the breakdown of the categories using *freq().* we can observe that we have 9 different categories in the data set
+
+```{r, eval=FALSE}
+freq(data=wp_nga, 
+     input = 'status_cle')
+```
+
+### Extracting Water Point Data
+
+------------------------------------------------------------------------
+
+As this study intends to look at the spatial relationship of water points we would need to identify and filter the correct data from the nga data set. viewing the dataset, we can identify status_cle as the column with the data we need. We would want to separate the water point data into their different categories, importantly, we need to separate between functional and non-functional. we would start by extracting Functional Water Point from wp_nga. This will be done via the *filter()* function.
+
+```{r, eval=FALSE}
+#extracting functional waterpoint data
+wpt_functional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Functional", 
+             "Functional but not in use",
+             "Functional but needs repair"))
+
+#extracting non-functional water point data
+wpt_nonfunctional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Abandoned/Decommissioned", 
+             "Abandoned",
+             "Non-Functional",
+             "Non functional due to dry season",
+             "Non-Functional due to dry season"))
+
+#extracing unknown water point data
+wpt_unknown <- wp_nga %>%
+  filter(status_cle == "Unknown")
+```
+
+Similarly we do a quick visual check on the breakdown of the categories using *freq().* we now have 3 categories under wpt_functional, 5 categories under non-functional and an unknown.
+
+```{r, eval=FALSE}
+#check functional waterpoint category
+freq(data=wpt_functional, 
+     input = 'status_cle')
+
+#check non-functional waterpoint category
+freq(data=wpt_nonfunctional, 
+     input = 'status_cle')
+```
+
+### Performing point-in-polygon Count
+
+------------------------------------------------------------------------
+
+We want to add the new values created into a final data table that we can use for further analysis. we would use the *mutate()* function to create columns for (1) total water points, (2) functional waterpoints, (3) non-functional wateropint and (4) unknown waterpoints.
+
+```{r, eval=FALSE}
+nga_wp <- nga %>% 
+  mutate(`total wpt` = lengths(
+    st_intersects(nga, wp_nga))) %>%
+  mutate(`wpt functional` = lengths(
+    st_intersects(nga, wpt_functional))) %>%
+  mutate(`wpt non-functional` = lengths(
+    st_intersects(nga, wpt_nonfunctional))) %>%
+  mutate(`wpt unknown` = lengths(
+    st_intersects(nga, wpt_unknown)))
+```
+
+### Saving the Analytical Data Table
+
+------------------------------------------------------------------------
+
+After the new values had been added into nga_wp, we also want to know whats the percantage of functional vs non-functional water points. this can be done with the follow code chunk. we will also add the values into nga_wp before writing it to nga_wp.rds using *write_rds()*
+
+```{r, eval=FALSE}
+nga_wp <- nga_wp %>%
+  mutate(pct_functional = `wpt functional`/`total wpt`) %>%
+  mutate(`pct_non-functional` = `wpt non-functional`/`total wpt`)
+```
+
+```{r, eval=FALSE}
+# i had checked the nga_wp file and i'm aware that there are some NaN enteries and duplicate enteries, however i don't know enough R to get rid of them currently, hence i decided to leave them inside first
+write_rds(nga_wp, "data/rds/nga_wp.rds")
+```
+
+Important: Github does not accept file sizes larger than 100 mb. A this point, we had filtered the data from the original 4.8 gb down to 2.1gb. we now need to set all the codes thus far not to evaluate (except the library codes) so that we can delete the large original source files.
+
+### Visualising the spatial distribution of water points
+
+------------------------------------------------------------------------
+
+After the data is cleaned up, we can finally take a look at how our data look like before moving on to geospatial Autocorrelation. we will be using *qtm()* and *tmap* to visualise the data.
+
+```{r}
+nga_wp <- read_rds("data/rds/nga_wp.rds")
+total <- qtm(nga_wp, "total wpt") +
+  tm_layout(main.title = "Total Water Points",
+            main.title.position = "center",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            legend.outside = FALSE,
+            legend.stack = "vertical",
+            legend.text.size =0.30,
+            legend.title.size=0.8)
+wp_functional <- qtm(nga_wp, "wpt functional") +
+  tm_layout(main.title = "Total Functional Water Point",
+            main.title.position = "center",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            legend.outside = FALSE,
+            legend.stack = "vertical",
+            legend.text.size =0.30,
+            legend.title.size=0.8)
+wp_nonfunctional <- qtm(nga_wp, "wpt non-functional") +
+  tm_layout(main.title = "Total non-functional Water Point",
+            main.title.position = "center",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            legend.outside = FALSE,
+            legend.stack = "vertical",
+            legend.text.size =0.30,
+            legend.title.size=0.8)
+unknown <- qtm(nga_wp, "wpt unknown") +
+  tm_layout(main.title = "Status Unknown",
+            main.title.position = "center",
+            main.title.size = 0.7,
+            main.title.fontface = "bold",
+            legend.outside = FALSE,
+            legend.stack = "vertical",
+            legend.text.size =0.30,
+            legend.title.size=0.8)
+
+tmap_arrange(total, wp_functional, wp_nonfunctional, unknown, asp=1, ncol=2)
+```
+
+We can see from the above that the data set consists of many polygons of uneven sizes and proximity to neighbors. This is relevant for us to determine which weighing method to apply next. The distribution of waterpoints also seem uneven, but it's too early to be certain. we shall confirm in the subsequent paragraphs.
+
+## Geospatial AutoCorrelation
+
+------------------------------------------------------------------------
+
+Geo-spatial autocorrelation refers to the degree to which one object is similar to other nearby objects. "Auto" means self and "correlation" means association. In layman terms, it measures how close objects are similar to other close objects. We would first need to identify the spatial relation and compute the weight matrix before applying a correleation method with the matrix.
+
+## Discussion on Spatial Weight Matrix
+
+------------------------------------------------------------------------
+
+A spatial weights matrix quantifies the spatial and temporal relationships that exist among the features in your dataset (or at least quantifies your conceptualization of those relationships). A few weighing methods had been considered for this study. Before we go any further, we should note that our data set is (1) made up of many polygons (\>30), (2) varies greatly in Size, (3) varies greatly in no of. neighbors (4) distribution of water points appears skewed from a cursory glance and (5) due to the way we aggregated the data, it is now a polygon data rather than point. Now wth these in mind, we can now consider the different relationships.
+
+-   **Polygon continuity weighing** is the simpliest but its not suitable as our polygons are not similar in size
+
+-   **Fixed distance** can be considered as it is often a good option for polygon data when there is a large variation in polygon size, however is more preferred if the data is point.
+
+-   **Inverse distance** is most appropriate with continuous data or to model processes where the closer two features are in space, the more likely they are to interact / influence each other.
+
+-   **Row standardisation** is used to create proportional weights in cases where features have an unequal number of neighbors. Row standardization involves dividing each neighbor weight for a feature by the sum of all neighbor weights for that feature and is recommended whenever the distribution of your features is potentially biased
+
+In this case, inverse distance and row standardization weighing seems to be the most suited for the case we are studying. Between the both of them, Row-standarised weights is preferred due to the simplicity and ease of application and also because we can see that the distribution of the water points is potentially biased. We can always come back and apply the inverse distance method if we find the row standarisation unsuitable or we would like to compare them.
+
+### **Row-standardised weights matrix**
+
+We will not compute the Row Standardised weights which will be used for Cluster and Outlier Analysis later. We would first need to create a queen contiguity weight matrix using *poly2nb()* with the follow code chunk
+
+```{r}
+wm_q <- poly2nb(nga_wp, 
+                queen=TRUE)
+summary(wm_q)
+```
+
+We can then use the *nb2listw()* function from spdep to generate th Row Standardised weight matrix. note that the input of nb2listw() must be an object of class nb and the style indicates the type of method applied. B is the basic binary coding, W is row standardised (sums over all links to n), C is globally standardised (sums over all links to n), U is equal to C divided by the number of neighbours (sums over all links to unity), while S is the variance-stabilizing coding scheme proposed by Tiefelsdorf et al. 1999, p. 167-168 (sums over all links to n).
+
+```{r}
+set.ZeroPolicyOption(TRUE)
+rswm_q <- nb2listw(wm_q, 
+                   style="W", 
+                   zero.policy = TRUE)
+rswm_q
+```
+
+### Compute Fixed Distance weight matrix
+
+Next, we will derive the fixed and adaptive distance weight weight matrix which would be used for our Hotspot and Coldspot analysis later. Fixed distance matrix calculates the distance between a point and neighboring points. in cases where there' not fixed point data, we would need to first derive a centroid. This can be done using the function *st_centroid().*
+
+```{r}
+longitude <- map_dbl(nga_wp$geometry, ~st_centroid(.x)[[1]])
+latitude <- map_dbl(nga_wp$geometry, ~st_centroid(.x)[[2]])
+coords <- cbind(longitude, latitude)
+```
+
+After the coordinates fore the centroid had been derived, we would need to determine cut off distance. but how do we decide what distance to cut off? The distance should be sufficient that all vectors at least have 1 neighbour but nobody is a neighbour of everybody else. to figure this out, we would need to check the summary of distances between the various points using *knearneigh()*.
+
+```{r}
+#coords <- coordinates(hunan)
+k1 <- knn2nb(knearneigh(coords))
+k1dists <- unlist(nbdists(k1, coords, longlat = TRUE))
+summary(k1dists)
+```
+
+The summary shows that the maximum distance between neighbors is 71.661km, hence we would use this as the upper boundary of the fixed distance weight matrix.
+
+Now we can finsih computing the fixed distance weight matrix with *dnearneigh().*
+
+```{r}
+wm_d72 <- dnearneigh(coords, 0, 72, longlat = TRUE)
+wm_d72
+```
+
+*nb2listw()* is used to convert the nb object into spatial weights object
+
+```{r}
+wm72_lw <- nb2listw(wm_d72, style = 'B')
+summary(wm72_lw)
+```
+
+### Computing adaptive distance weight matrix
+
+One of the characteristics of fixed distance weight matrix is that more densely settled areas (usually the urban areas) tend to have more neighbours and the less densely settled areas (usually the rural counties) tend to have lesser neighbours. Having many neighbours smoothes the neighbour relationship across more neighbours.
+
+```{r}
+knn8 <- knn2nb(knearneigh(coords, k=8))
+knn8
+```
+
+*nb2listw()* is used to convert the nb object into spatial weights object
+
+```{r}
+knn_lw <- nb2listw(knn8, style = 'B')
+summary(knn_lw)
+```
+
+## Cluster and Outlier Analysis
+
+------------------------------------------------------------------------
+
+As the objective of the study was to uncover spatial patterns of the **non-functional water points**, we would only be focusing on the non functional water point (wpt non-functional) geospatial feature from here onwards. There are few methods of calculating clusters and outliers with Moran's I being the most popular one. we would be using Moran's I to first check on the global
+
+### Computing Global Moran's I
+
+The global Moran's I test can be carried out by simply applying moran.test. As can be seen from the output, the results are statistically significant and we rejuect the null hypothesis that there the observed spatial pattern of values is equally likely as any other spatial pattern.
+
+```{r}
+moran.test(nga_wp$`wpt non-functional`, 
+           listw=rswm_q, 
+           zero.policy = TRUE, 
+           na.action=na.omit)
+```
+
+### Computing Monte Carlo Moran's I
+
+To be sure of our results, we will use a monte carlo simulation to simulate Moran's I under the assumption of no spatial pattern. The code chunk below performs permutation test for Moran\'s I statistic by using *moran.mc()* of **spdep**. A total of 1000 simulation will be performed. We can see that it is still statistically significant
+
+```{r}
+set.seed(1234)
+MC= moran.mc(nga_wp$`wpt non-functional`, 
+                listw=rswm_q, 
+                nsim=999, 
+                zero.policy = TRUE, 
+                na.action=na.omit)
+MC
+```
+
+### Drawing the histogram of the Monte Carlo Moran's I
+
+It is always a good practice for us the examine the simulated Moran\'s I test statistics in greater detail. This can be achieved by plotting the distribution of the statistical values as a histogram by using the code chunk below. We can see that the results are approximiately normally distributed with outliers to the right suggesting that the non-functional water points are clustered.
+
+```{r}
+# mean(MC$res[1:999])
+# var(MC$res[1:999])
+# summary(MC$res[1:999])
+
+hist(MC$res, 
+     freq=TRUE, 
+     breaks=20, 
+     xlab="Simulated Moran's I")
+abline(v=0, 
+       col="red")
+```
+
+### Computing Local Moran's I
+
+The Cluster and Outlier Analysis tool locates spatial clusters of features with high or low values given a set of features (Input Feature Class) and an analysis field (Input Field). Additionally, the program finds spatial outliers. For each statistically significant feature, the tool determines a local Moran\'s I value, a z-score, a pseudo p-value, and a code designating the cluster type. The statistical significance of the obtained index values is represented by the z-scores and pseudo p-values.
+
+To calculate the local Moran's I, we can simply use *localmoran()* function of spdep to compute the values quickly.
+
+```{r}
+fips <- order(nga_wp$shapeName)
+localMI_nonfun <- localmoran(nga_wp$`wpt non-functional`, rswm_q)
+head(localMI_nonfun)
+```
+
+*localmoran()* function returns a matrix of values whose columns are:
+
+-   Ii: the local Moran\'s I statistics
+
+-   E.Ii: the expectation of local moran statistic under the randomisation hypothesis
+
+-   Var.Ii: the variance of local moran statistic under the randomisation hypothesis
+
+-   Z.Ii:the standard deviate of local moran statistic
+
+-   Pr(): the p-value of local moran statistic
+
+Mapping local Moran I for non-functional water points
+
+```{r}
+nga_wp.localMI_nonfun <- cbind(nga_wp,localMI_nonfun) %>%
+  rename(Pr.Ii = Pr.z....E.Ii..)
+```
+
+next, we can now map the Moran's I values and p-values using the following code chunk
+
+```{r}
+localMI_nonfun.map <- tm_shape(nga_wp.localMI_nonfun) +
+  tm_fill(col = "Ii", 
+          style = "pretty", 
+          title = "local moran statistics") +
+  tm_borders(alpha = 0.5)
+
+pvalue.map <- tm_shape(nga_wp.localMI_nonfun) +
+  tm_fill(col = "Pr.Ii", 
+          breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+          palette="-Blues", 
+          title = "local Moran's I p-values") +
+  tm_borders(alpha = 0.5)
+
+tmap_arrange(localMI_nonfun.map, pvalue.map, asp=1, ncol=2)
+```
+
+### LISA Cluster Mapping
+
+The LISA Cluster Map shows the significant locations color coded by type of spatial autocorrelation. The first step before we can generate the LISA cluster map is to plot the Moran scatterplot.
+
+The Moran scatterplot is an illustration of the relationship between the values of the chosen attribute at each location and the average value of the same attribute at neighboring locations and can be derived by using *moran.plot()* of spdep.
+
+```{r}
+#the scaling is not working, i'm not sure why
+nga_wp$`Z.wpt non-functional` <- scale(nga_wp$`wpt non-functional`) %>% 
+  as.vector
+
+nci <- moran.plot(nga_wp$`wpt non-functional`, rswm_q,
+                  labels=as.character(nga_wp$shapeName), 
+                  xlab="Non-functional water points", 
+                  ylab="Spatially Lag non-functional water point")
+```
+
+Notice that the plot is split in 4 quadrants. The top right corner belongs to areas that have high GDPPC and are surrounded by other areas that have the average level of GDPPC. This are the high-high locations.
+
+Next, we will now prepare LISA Map by setting up the quardrants
+
+```{r}
+quadrant <- vector(mode="numeric",length=nrow(localMI_nonfun))
+nga_wp$`Lag_wpt non-functional` <- lag.listw(rswm_q, nga_wp$`wpt non-functional`)
+DV <- nga_wp$`Lag_wpt non-functional` - mean(nga_wp$`Lag_wpt non-functional`)     
+LM_I <- localMI_nonfun[,1]   
+signif <- 0.05       
+quadrant[DV <0 & LM_I>0] <- 1
+quadrant[DV >0 & LM_I<0] <- 2
+quadrant[DV <0 & LM_I<0] <- 3  
+quadrant[DV >0 & LM_I>0] <- 4    
+quadrant[localMI_nonfun[,5]>signif] <- 0
+```
+
+Once the quardarant has been decided, we can finally drawing the LISA map using tmap.
+
+```{r}
+nonfunctional <- qtm(nga_wp, "wpt non-functional")
+
+nga_wp.localMI_nonfun$quadrant <- quadrant
+colors <- c("#ffffff", "#2c7bb6", "#abd9e9", "#fdae61", "#d7191c")
+clusters <- c("insignificant", "low-low", "low-high", "high-low", "high-high")
+
+LISAmap <- tm_shape(nga_wp.localMI_nonfun) +
+  tm_fill(col = "quadrant", 
+          style = "cat", 
+          palette = colors[c(sort(unique(quadrant)))+1], 
+          labels = clusters[c(sort(unique(quadrant)))+1],
+          popup.vars = c("")) +
+  tm_view(set.zoom.limits = c(11,17)) +
+  tm_borders(alpha=0.5)
+
+tmap_arrange(nonfunctional, LISAmap, 
+             asp=1, ncol=2)
+```
+
+### Analysis of Clustering results
+
+From the LISA Map, we can see that southern border surrounding the centre has a H-H for non-functional water point percentage. these regions should be prioritised for repairs or setting up new water points.
+
+The north east region on the other hand shows a L-L for water point percentage which measn good access to water points.
+
+## Hotspot and Coldspot Analysis
+
+------------------------------------------------------------------------
+
+Beside detecting cluster and outliers, localised spatial statistics can be also used to detect hot spot and/or cold spot areas. The term 'hot spot' has been used generically across disciplines to describe a region or value that is higher relative to its surroundings (Lepers et al 2005, Aben et al 2012, Isobe et al 2015).
+
+### Computing Gi Statistics
+
+An alternative spatial statistics to detect spatial anomalies is the Getis and Ord's G-statistics (Getis and Ord, 1972; Ord and Getis, 1995). It looks at neighbours within a defined proximity to identify where either high or low values clutser spatially. Here, statistically significant hot-spots are recognised as areas of high values where other areas within a neighbourhood range also share high values too.
+
+The analysis consists of three steps:
+
+-   Deriving spatial weight matrix
+
+-   Computing Gi statistics
+
+-   Mapping Gi statistics
+
+```{r}
+#| output: false
+fips <- order(nga_wp$shapeName)
+gi.fixed  <- localG(nga_wp$`wpt non-functional`, wm72_lw)
+gi.fixed
+```
+
+Join Gi Values to data frame
+
+```{r}
+nga_wp.gi <- cbind(nga_wp, as.matrix(gi.fixed)) %>%
+  rename(gstat_fixed = as.matrix.gi.fixed.)
+```
+
+### Mapping Gi Values with fixed distance weights
+
+```{r}
+nonfunctional <- qtm(nga_wp, "wpt non-functional")
+
+Gimap <-tm_shape(nga_wp.gi) +
+  tm_fill(col = "gstat_fixed", 
+          style = "pretty",
+          palette="-RdBu",
+          title = "local Gi") +
+  tm_borders(alpha = 0.5)
+
+tmap_arrange(nonfunctional, Gimap, asp=1, ncol=2)
+```
+
+### Mapping Gi values with adaptive distance weights
+
+```{r}
+#| output: false
+fips <- order(nga_wp$shapeName)
+gi.adaptive <- localG(nga_wp$`wpt non-functional`, knn_lw)
+gi.adaptive
+```
+
+```{r}
+nga_wp.gi <- cbind(nga_wp, as.matrix(gi.adaptive)) %>%
+  rename(gstat_adaptive = as.matrix.gi.adaptive.)
+```
+
+```{r}
+nonfunctional <- qtm(nga_wp, "wpt non-functional")
+
+Gimap <-tm_shape(nga_wp.gi) +
+  tm_fill(col = "gstat_adaptive", 
+          style = "pretty",
+          palette="-RdBu",
+          title = "local Gi") +
+  tm_borders(alpha = 0.5)
+
+tmap_arrange(nonfunctional, Gimap, asp=1, ncol=2)
+```
+
+### Analysis of Hotspot and Coldspot
+
+The output of the Hotspot and coldSpot analysis seems to be in line with what we saw earlier from the LISA maps. we can see tha the area just bordering south of the centre area has a higher clustering of non-functional waterpoints and should be piroritised for repairs. on the other hand, the north eastern side has lower clusters of non-functional water point and could be left as is for the time being.
+
+## Conclusion
+
+------------------------------------------------------------------------
+
+Geospatial Correlation is an important and useful tool for us to understand complex challenges and derive suitable solutions. the use of clustering outliers analysis allows organisations and governments to understand which areas are more in need of prioritization.
+
+Moving ahead, furture studies could explore correlations between the water points vis a vis other features. for example proximity or distance from water source fo the population in the areas.
