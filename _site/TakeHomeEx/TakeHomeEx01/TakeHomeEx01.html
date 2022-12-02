@@ -706,7 +706,7 @@ Moran I statistic       Expectation          Variance
 </section>
 <section id="computing-monte-carlo-morans-i" class="level3">
 <h3 class="anchored" data-anchor-id="computing-monte-carlo-morans-i">Computing Monte Carlo Moran’s I</h3>
-<p>To be sure of our results, we will use a monte carlo simulation to simulate Moran’s I under the assumption of no spatial pattern. The code chunk below performs permutation test for Moran's I statistic by using <em>moran.mc()</em> of <strong>spdep</strong>. A total of 1000 simulation will be performed. We can see that it is still statistically significant</p>
+<p>To be sure of our results, we will use a monte carlo simulation to simulate Moran’s I under the assumption of no spatial pattern. The code chunk below performs permutation test for Moran’s I statistic by using <em>moran.mc()</em> of <strong>spdep</strong>. A total of 1000 simulation will be performed. We can see that it is still statistically significant</p>
 <div class="cell">
 <details>
 <summary>Show the code</summary>
@@ -733,7 +733,7 @@ alternative hypothesis: greater</code></pre>
 </section>
 <section id="drawing-the-histogram-of-the-monte-carlo-morans-i" class="level3">
 <h3 class="anchored" data-anchor-id="drawing-the-histogram-of-the-monte-carlo-morans-i">Drawing the histogram of the Monte Carlo Moran’s I</h3>
-<p>It is always a good practice for us the examine the simulated Moran's I test statistics in greater detail. This can be achieved by plotting the distribution of the statistical values as a histogram by using the code chunk below. We can see that the results are approximiately normally distributed with outliers to the right suggesting that the non-functional water points are clustered.</p>
+<p>It is always a good practice for us the examine the simulated Moran’s I test statistics in greater detail. This can be achieved by plotting the distribution of the statistical values as a histogram by using the code chunk below. We can see that the results are approximiately normally distributed with outliers to the right suggesting that the non-functional water points are clustered.</p>
 <div class="cell">
 <details>
 <summary>Show the code</summary>
@@ -755,7 +755,7 @@ alternative hypothesis: greater</code></pre>
 </section>
 <section id="computing-local-morans-i" class="level3">
 <h3 class="anchored" data-anchor-id="computing-local-morans-i">Computing Local Moran’s I</h3>
-<p>The Cluster and Outlier Analysis tool locates spatial clusters of features with high or low values given a set of features (Input Feature Class) and an analysis field (Input Field). Additionally, the program finds spatial outliers. For each statistically significant feature, the tool determines a local Moran's I value, a z-score, a pseudo p-value, and a code designating the cluster type. The statistical significance of the obtained index values is represented by the z-scores and pseudo p-values.</p>
+<p>The Cluster and Outlier Analysis tool locates spatial clusters of features with high or low values given a set of features (Input Feature Class) and an analysis field (Input Field). Additionally, the program finds spatial outliers. For each statistically significant feature, the tool determines a local Moran’s I value, a z-score, a pseudo p-value, and a code designating the cluster type. The statistical significance of the obtained index values is represented by the z-scores and pseudo p-values.</p>
 <p>To calculate the local Moran’s I, we can simply use <em>localmoran()</em> function of spdep to compute the values quickly.</p>
 <div class="cell">
 <details>
@@ -776,7 +776,7 @@ alternative hypothesis: greater</code></pre>
 </div>
 <p><em>localmoran()</em> function returns a matrix of values whose columns are:</p>
 <ul>
-<li><p>Ii: the local Moran's I statistics</p></li>
+<li><p>Ii: the local Moran’s I statistics</p></li>
 <li><p>E.Ii: the expectation of local moran statistic under the randomisation hypothesis</p></li>
 <li><p>Var.Ii: the variance of local moran statistic under the randomisation hypothesis</p></li>
 <li><p>Z.Ii:the standard deviate of local moran statistic</p></li>

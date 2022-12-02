@@ -331,7 +331,7 @@ moran.test(nga_wp$`wpt non-functional`,
 
 ### Computing Monte Carlo Moran's I
 
-To be sure of our results, we will use a monte carlo simulation to simulate Moran's I under the assumption of no spatial pattern. The code chunk below performs permutation test for Moran\'s I statistic by using *moran.mc()* of **spdep**. A total of 1000 simulation will be performed. We can see that it is still statistically significant
+To be sure of our results, we will use a monte carlo simulation to simulate Moran's I under the assumption of no spatial pattern. The code chunk below performs permutation test for Moran's I statistic by using *moran.mc()* of **spdep**. A total of 1000 simulation will be performed. We can see that it is still statistically significant
 
 ```{r}
 set.seed(1234)
@@ -345,7 +345,7 @@ MC
 
 ### Drawing the histogram of the Monte Carlo Moran's I
 
-It is always a good practice for us the examine the simulated Moran\'s I test statistics in greater detail. This can be achieved by plotting the distribution of the statistical values as a histogram by using the code chunk below. We can see that the results are approximiately normally distributed with outliers to the right suggesting that the non-functional water points are clustered.
+It is always a good practice for us the examine the simulated Moran's I test statistics in greater detail. This can be achieved by plotting the distribution of the statistical values as a histogram by using the code chunk below. We can see that the results are approximiately normally distributed with outliers to the right suggesting that the non-functional water points are clustered.
 
 ```{r}
 # mean(MC$res[1:999])
@@ -362,7 +362,7 @@ abline(v=0,
 
 ### Computing Local Moran's I
 
-The Cluster and Outlier Analysis tool locates spatial clusters of features with high or low values given a set of features (Input Feature Class) and an analysis field (Input Field). Additionally, the program finds spatial outliers. For each statistically significant feature, the tool determines a local Moran\'s I value, a z-score, a pseudo p-value, and a code designating the cluster type. The statistical significance of the obtained index values is represented by the z-scores and pseudo p-values.
+The Cluster and Outlier Analysis tool locates spatial clusters of features with high or low values given a set of features (Input Feature Class) and an analysis field (Input Field). Additionally, the program finds spatial outliers. For each statistically significant feature, the tool determines a local Moran's I value, a z-score, a pseudo p-value, and a code designating the cluster type. The statistical significance of the obtained index values is represented by the z-scores and pseudo p-values.
 
 To calculate the local Moran's I, we can simply use *localmoran()* function of spdep to compute the values quickly.
 
@@ -374,7 +374,7 @@ head(localMI_nonfun)
 
 *localmoran()* function returns a matrix of values whose columns are:
 
--   Ii: the local Moran\'s I statistics
+-   Ii: the local Moran's I statistics
 
 -   E.Ii: the expectation of local moran statistic under the randomisation hypothesis
 
