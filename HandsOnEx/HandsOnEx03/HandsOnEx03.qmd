@@ -1,0 +1,217 @@
+---
+title: "HandsOnEx03"
+editor: visual
+theme: materia
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    warning: false
+    message: false
+    fig-retime: 3
+---
+
+## Geographical Segmentation with Spatial Constrained Clustering Techniques
+
+### Installing and loading R packages
+
+The R packages needed for this exercise are as follows:
+
+-   Spatial data handling
+
+    -   **sf**, **rgdal** and **spdep**
+
+-   Attribute data handling
+
+    -   **tidyverse**, especially **readr**, **ggplot2** and **dplyr**
+
+-   Choropleth mapping
+
+    -   **tmap**
+
+-   Multivariate data visualisation and analysis
+
+    -   **coorplot**, **ggpubr**, and **heatmaply**
+
+-   Cluster analysis
+
+    -   **cluster**
+
+    -   **ClustGeo**
+
+```{r}
+pacman::p_load(rgdal, spdep, tmap, sf, ClustGeo, 
+               ggpubr, cluster, factoextra, NbClust,
+               heatmaply, corrplot, psych, tidyverse)
+```
+
+Note: With **tidyverse**, we do not have to install **readr**, **ggplot2** and **dplyr** packages separately. In fact, **tidyverse** also installs other very useful R packages such as **tidyr**.
+
+### Data Import
+
+The Myanmar Township Boundary GIS data is in ESRI shapefile format. It will be imported into R environment by using the [*st_read()*](https://www.rdocumentation.org/packages/sf/versions/0.7-2/topics/st_read) function of **sf**.
+
+```{r}
+shan_sf <- st_read(dsn = "data/geospatial", 
+                   layer = "myanmar_township_boundaries") %>%
+  filter(ST %in% c("Shan (East)", "Shan (North)", "Shan (South)"))
+```
+
+We now check the contents of the simple feature data frame
+
+```{r}
+shan_sf
+```
+
+Notice that sf.data.frame is conformed to Hardy Wickham\'s [tidy](https://edzer.github.io/rstudio_conf/#1) framework.
+
+Since *shan_sf* is conformed to tidy framework, we can also *glimpse()* to reveal the data type of it\'s fields.
+
+```{r}
+glimpse(shan_sf)
+```
+
+### Importing aspatial data into R environment
+
+```{r}
+ict <- read_csv ("data/aspatial/Shan-ICT.csv")
+```
+
+Check summary of the aspatial data
+
+```{r}
+summary(ict)
+```
+
+After all the data had been imported into the R environment, we now start to create new variables using dplyr package
+
+The unit of measurement of the values are number of household. Using these values directly will be bias by the underlying total number of households. In general, the townships with relatively higher total number of households will also have higher number of households owning radio, TV, etc.
+
+In order to overcome this problem, we will derive the penetration rate of each ICT variable by using the code chunk below.
+
+```{r}
+ict_derived <- ict %>%
+  mutate(`RADIO_PR` = `Radio`/`Total households`*1000) %>%
+  mutate(`TV_PR` = `Television`/`Total households`*1000) %>%
+  mutate(`LLPHONE_PR` = `Land line phone`/`Total households`*1000) %>%
+  mutate(`MPHONE_PR` = `Mobile phone`/`Total households`*1000) %>%
+  mutate(`COMPUTER_PR` = `Computer`/`Total households`*1000) %>%
+  mutate(`INTERNET_PR` = `Internet at home`/`Total households`*1000) %>%
+  rename(`DT_PCODE` =`District Pcode`,`DT`=`District Name`,
+         `TS_PCODE`=`Township Pcode`, `TS`=`Township Name`,
+         `TT_HOUSEHOLDS`=`Total households`,
+         `RADIO`=`Radio`, `TV`=`Television`, 
+         `LLPHONE`=`Land line phone`, `MPHONE`=`Mobile phone`,
+         `COMPUTER`=`Computer`, `INTERNET`=`Internet at home`) 
+```
+
+Again, check the summary
+
+```{r}
+summary(ict_derived)
+```
+
+### Exploratory Data Analysis (EDA)
+
+Histogram is useful to identify the overall distribution of the data values (i.e. left skew, right skew or normal distribution)
+
+```{r}
+ggplot(data=ict_derived, 
+       aes(x=`RADIO`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+```
+
+Boxplot is useful to detect if there are outliers.
+
+```{r}
+ggplot(data=ict_derived, 
+       aes(x=`RADIO`)) +
+  geom_boxplot(color="black", 
+               fill="light blue")
+```
+
+Next, we will also plotting the distribution of the newly derived variables (i.e. Radio penetration rate) by using the code chunk below.
+
+```{r}
+ggplot(data=ict_derived, 
+       aes(x=`RADIO_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+```
+
+```{r}
+ggplot(data=ict_derived, 
+       aes(x=`RADIO_PR`)) +
+  geom_boxplot(color="black", 
+               fill="light blue")
+```
+
+Visualizing histograms of the selected variables in the ict_derived data.frame
+
+```{r}
+radio <- ggplot(data=ict_derived, 
+             aes(x= `RADIO_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+
+tv <- ggplot(data=ict_derived, 
+             aes(x= `TV_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+
+llphone <- ggplot(data=ict_derived, 
+             aes(x= `LLPHONE_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+
+mphone <- ggplot(data=ict_derived, 
+             aes(x= `MPHONE_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+
+computer <- ggplot(data=ict_derived, 
+             aes(x= `COMPUTER_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+
+internet <- ggplot(data=ict_derived, 
+             aes(x= `INTERNET_PR`)) +
+  geom_histogram(bins=20, 
+                 color="black", 
+                 fill="light blue")
+```
+
+Next, the [*ggarange()*](https://rpkgs.datanovia.com/ggpubr/reference/ggarrange.html) function of [**ggpubr**](https://rpkgs.datanovia.com/ggpubr/) package is used to group these histograms together.
+
+```{r}
+ggarrange(radio, tv, llphone, mphone, computer, internet, 
+          ncol = 3, 
+          nrow = 2)
+```
+
+## EDA with choropleth map
+
+### Joining geospatial and aspatial data
+
+Before we can prepare the choropleth map, we need to combine both the geospatial data object (i.e. *shan_sf*) and aspatial data.frame object (i.e. *ict_derived*) into one. This will be performed by using the [*left_join*](https://dplyr.tidyverse.org/reference/join.tbl_df.html) function of **dplyr** package. The *shan_sf* simple feature data.frame will be used as the base data object and the *ict_derived* data.frame will be used as the join table.
+
+```{r}
+shan_sf <- left_join(shan_sf, 
+                     ict_derived, 
+                     by=c("TS_PCODE"="TS_PCODE"))
+write_rds(shan_sf, "data/rds/shan_sf.rds")
+```
+
+Preparing a choropleth map
+
+```{r}
+# qtm(shan_sf, "RADIO_PR")
+```
