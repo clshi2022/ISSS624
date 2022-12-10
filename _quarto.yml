@@ -12,12 +12,16 @@ website:
           - text: Hands-on Exercise 2
             href: HandsOnEx\HandsOnEx02\HandsOnEx02.qmd
           - text: Hands-on Exercise 3
-            href: HandsOnEx\HandsOnEx03\HandsOnEx03.qmd            
+            href: HandsOnEx\HandsOnEx03\HandsOnEx03.qmd
+          - text: Hands-on Exercise 4
       - text: In-Class Exercises
         menu: 
           - text: In-class Exercise 1
             href: InClassEx\InClassEx01\InClassEx01.qmd
-          - text: In-class Exercise 2      
+          - text: In-class Exercise 2    
+          - text: In-class Exercise 3
+          - text: In-class Exercise 4
+            href: InClassEx\InClassEx04\InClassEx04.qmd
       - text: Take Home Exercises
         menu: 
           - text: Take Home Exercise 1
