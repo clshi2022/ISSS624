@@ -629,7 +629,7 @@ plot.mst(shan.mst,
          add=TRUE)
 ```
 
-### Computing spatially constrained clusters using SKATER  method
+### Computing spatially constrained clusters using SKATER method
 
 Using skater() of spdep package to compute the cluster
 
