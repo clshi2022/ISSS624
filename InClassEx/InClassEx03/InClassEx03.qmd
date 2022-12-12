@@ -10,3 +10,100 @@ format:
     message: false
     fig-retime: 3
 ---
+
+# Regionlisation with Spatially Constrained Cluster Analysis
+
+## Overview
+
+This in-class exercise aims to look at ways to handle aspatial and geospatial data with the following focus:
+
+-   import geospatial data into wkt format into R
+
+-   convert the tibble data frame with wkt field into sf data frame, and
+
+-   performing point-in-polygon overlay
+
+## Getting Started
+
+### Loading the necessary packages
+
+-   sf for importing and processing geospatial data,
+
+-   tidyverse for importing and processing non-spatial data. readr pacakge will be used to import wkt data and dplyr package will be used to wrangle the data
+
+```{r}
+#| eval: false
+pacman::p_load(sf, tidyverse)
+```
+
+## Data Import
+
+### Importing the water point data
+
+```{r}
+#| eval: false
+wp_nga <- read_csv("data/aspatial/WPdx.csv") %>%
+  filter(`#clean_country_name` == "Nigeria")
+```
+
+Notes:
+
+-   The original file name had been renamed into a simpler form to make our own lives easier
+
+-   Instead of using read.csv() of base R to import the csv file, read_csv() from readr is used instead. this is because only read_csv will read the spaces properly
+
+-   Because the data file contains water point data of many countries, we used filter of dplyr to extract data for Nigeria only
+
+### Converting wkt data
+
+Reminder:
+
+-   Review the data structure to check if it is in tiddle data from format after importing the data into R. (here we use View from environment pane to check the data, can also use the view() function)
+
+The tibble data frame has a field called New Georeferenced Column which represent spatial data in textual format. this format is commonly known as **Well Known Text** or **wkt**
+
+To convert an aspatial data in wkt format into an sf data frame, we would first need to use st_as_sfc() of sf package to derive a new field called Geometry
+
+```{r}
+#| eval: false
+wp_nga$Geometry = st_as_sfc(wp_nga$`New Georeferenced Column`)
+```
+
+next, st_sf() will be used to convert the tibble data frame into sf data frame
+
+```{r}
+#| eval: false
+wp_sf <- st_sf(wp_nga, crs=4326)
+```
+
+### Importing Nigeria LGA level boundary data
+
+```{r}
+#| eval: false
+nga <- st_read(dsn = "data/geospatial",
+               layer = "NigeriaLGA",
+               crs = 4326) %>%
+  select(shapeName)
+```
+
+## Point in Polygon Overlay
+
+Although *wp_sf* sf data frame consists of a field called *#clean_adm2* which by right should provides the LGA name of the water point located. However, it is always a good practice to be more caution when dealing with data accuracy. ( in short, always check the data)
+
+We now use a geoprocessing function (commonly known as GIS analysis) called **point-in-polygon overlay** to transfer teh attribute information in nga sf data frame into wp_sf data frame
+
+```{r}
+#| eval: false
+wp_sf <- st_join(wp_sf, nga)
+```
+
+Now we write out the data for subsequent data wrangling
+
+```{r}
+#| eval: false
+write_rds(wp_sf, "data/rds/wp_sf.rds")
+```
+
+**Important Note:**
+
+The file size is still larger than 100mb, further cleaning or wrangling is needed before we can push this to Git Hub
