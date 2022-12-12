@@ -42,7 +42,7 @@ The R packages needed for this exercise are as follows:
 ```{r}
 pacman::p_load(rgdal, spdep, tmap, sf, ClustGeo, 
                ggpubr, cluster, factoextra, NbClust,
-               heatmaply, corrplot, psych, tidyverse)
+               heatmaply, corrplot, psych, tidyverse, GGally)
 ```
 
 Note: With **tidyverse**, we do not have to install **readr**, **ggplot2** and **dplyr** packages separately. In fact, **tidyverse** also installs other very useful R packages such as **tidyr**.
@@ -627,4 +627,213 @@ plot.mst(shan.mst,
          cex.lab=0.7, 
          cex.circles=0.005, 
          add=TRUE)
+```
+
+### Computing spatially constrained clusters using SKATER  method
+
+Using skater() of spdep package to compute the cluster
+
+```{r}
+clust6 <- spdep::skater(edges = shan.mst[,1:2], 
+                 data = shan_ict, 
+                 method = "euclidean", 
+                 ncuts = 5)
+```
+
+Important to note the following:
+
+-   The *skater()* takes three mandatory arguments: - the first two columns of the MST matrix (i.e. not the cost), - the data matrix (to update the costs as units are being grouped), and - the number of cuts.
+
+-   It is set to **one less than the number of clusters**. So, the value specified is **not** the number of clusters, but the number of cuts in the graph, one less than the number of clusters.
+
+-   The result of the *skater()* is an object of class **skater**. We can examine its contents by using the code chunk below.
+
+```{r}
+#checking the contents of the skater object
+str(clust6)
+```
+
+note that the groups vector contain the labels of the cluster to which each observation belongs
+
+```{r}
+#we can check the cluster assignment as follows
+ccs6 <- clust6$groups
+ccs6
+```
+
+we can check the number of observations and the dimension of each vector using table
+
+```{r}
+table(ccs6)
+```
+
+FInally we can plot the pruned tree of the five clusters on top of the townshop area
+
+```{r}
+plot(shan_sp, border=gray(.5))
+plot(clust6, 
+     coordinates(shan_sp), 
+     cex.lab=.7,
+     groups.colors=c("red","green","blue", "brown", "pink"),
+     cex.circles=0.005, 
+     add=TRUE)
+```
+
+Then we can also vsiualise the clusters in choropleth map
+
+```{r}
+groups_mat <- as.matrix(clust6$groups)
+shan_sf_spatialcluster <- cbind(shan_sf_cluster, as.factor(groups_mat)) %>%
+  rename(`SP_CLUSTER`=`as.factor.groups_mat.`)
+qtm(shan_sf_spatialcluster, "SP_CLUSTER")
+```
+
+For comparison, it is usually best to show them side by side
+
+```{r}
+hclust.map <- qtm(shan_sf_cluster,
+                  "CLUSTER") + 
+  tm_borders(alpha = 0.5) 
+
+shclust.map <- qtm(shan_sf_spatialcluster,
+                   "SP_CLUSTER") + 
+  tm_borders(alpha = 0.5) 
+
+tmap_arrange(hclust.map, shclust.map,
+             asp=NA, ncol=2)
+```
+
+## Spatially Constrained Clustering: ClustGeo Method
+
+The following paras will use the ClustGeo package to perform spatially constrained hierarchical cluster analysis and spatially constrained cluster analysis.
+
+ClustGeo is an R package specially designed to support the need of performing spatially constrained cluster analysis. Notably it provides a Ward-like clustering algorithm called hclustgeo() which includes spatial/geographical constraints.
+
+### Creating Clusters
+
+```{r}
+nongeo_cluster <- hclustgeo(proxmat)
+plot(nongeo_cluster, cex = 0.5)
+rect.hclust(nongeo_cluster, 
+            k = 6, 
+            border = 2:5)
+```
+
+the dissimilar matrix must be an object of class dist. this is usually obtained with the function dist()
+
+### Mapping the clusters
+
+```{r}
+groups <- as.factor(cutree(nongeo_cluster, k=6))
+```
+
+```{r}
+shan_sf_ngeo_cluster <- cbind(shan_sf, as.matrix(groups)) %>%
+  rename(`CLUSTER` = `as.matrix.groups.`)
+```
+
+```{r}
+qtm(shan_sf_ngeo_cluster, "CLUSTER")
+```
+
+### Spatially constrained hierarchical Clustering
+
+we would need to derive a spatial distance matrix first before we can perform spatially constrained hierarchical clustering. This is done using st_distance() of sf package
+
+```{r}
+dist <- st_distance(shan_sf, shan_sf)
+distmat <- as.dist(dist)
+```
+
+Next, choicealpha() will be used to determine a suitable value for the mixing parameter alpha
+
+```{r}
+cr <- choicealpha(proxmat, distmat, range.alpha = seq(0, 1, 0.1), K=6, graph = TRUE)
+```
+
+With reference to the graphs above, alpha 0.3 will be used in the following codes. (the intersection is around 0.3)
+
+```{r}
+clustG <- hclustgeo(proxmat, distmat, alpha = 0.3)
+```
+
+then cutree() is used to derive the cluster object
+
+```{r}
+groups <- as.factor(cutree(clustG, k=6))
+```
+
+We will then join back the group list with shan_sf polygon feature data frame
+
+```{r}
+shan_sf_Gcluster <- cbind(shan_sf, as.matrix(groups)) %>%
+  rename(`CLUSTER` = `as.matrix.groups.`)
+```
+
+finally, we plot the map of the newly delineated spatially constrained clusters
+
+```{r}
+qtm(shan_sf_Gcluster, "CLUSTER")
+```
+
+## Visualising individual clustering variable
+
+Showing the distribution of a clustering variable
+
+```{r}
+ggplot(data = shan_sf_ngeo_cluster,
+       aes(x = CLUSTER, y = RADIO_PR)) +
+  geom_boxplot()
+```
+
+The graph above shows that Cluster 3 displays the highest mean Radio Ownership Per Thousand Household, followed by Cluster 2,1, 4 6 and 5
+
+### Multivariate visualisation
+
+Parallel coordinate plot can be used to reveal clustering variables by cluster very effectively. We can use the ggparcoord() of GGally package to show this
+
+```{r}
+ggparcoord(data = shan_sf_ngeo_cluster, 
+           columns = c(17:21), 
+           scale = "globalminmax",
+           alphaLines = 0.2,
+           boxplot = TRUE, 
+           title = "Multiple Parallel Coordinates Plots of ICT Variables by Cluster") +
+  facet_grid(~ CLUSTER) + 
+  theme(axis.text.x = element_text(angle = 30))
+```
+
+Interpretation:
+
+The parallel coordinate plot above reveals that households in Cluster 4 townships tend to own the highest number of TV and mobile-phone. On the other hand, households in cluster 5 tend to own the lowest of all the five ICT.
+
+Other points on plotting:
+
+the scale argument of ggparcoor() provides several methods to scale the clustering variables:
+
+-   std: univariately, subtract mean and divide by standard deviation
+
+-   robust: univariately, subtract mean and divide by median absolute deviation
+
+-   uniminmax: univariately scale so that the minimum of the variable is zero, and the maximum is one
+
+-   globalminmax: no scaling is done;the range of the graphs is defined by the global minimum and the global maximum
+
+-   center: use uniminmax to standardise vertical height, then center each variable at a value specified by the scaleSummary param
+
+-   centerObs: use uniminmax to standardise vertical height, then center each variable at the value of the observation specified by the centerObsID param
+
+There is no best scaling method, it depends on the analysis
+
+Next, we can also compute the sumamry statistics such as mean, median, sd, etc to complement the visual interpretation.
+
+```{r}
+shan_sf_ngeo_cluster %>% 
+  st_set_geometry(NULL) %>%
+  group_by(CLUSTER) %>%
+  summarise(mean_RADIO_PR = mean(RADIO_PR),
+            mean_TV_PR = mean(TV_PR),
+            mean_LLPHONE_PR = mean(LLPHONE_PR),
+            mean_MPHONE_PR = mean(MPHONE_PR),
+            mean_COMPUTER_PR = mean(COMPUTER_PR))
 ```
