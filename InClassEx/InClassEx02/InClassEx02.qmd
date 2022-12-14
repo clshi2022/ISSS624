@@ -1,0 +1,161 @@
+---
+title: "Geospatial Analytics for Social Good - Nigeria Water Scarcity Issue"
+editor: visual
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+---
+
+## Overview
+
+------------------------------------------------------------------------
+
+Note that this is a precursor to Take Home Ex01 that was done in class as In Class Ex 02. So i chopped my Take Home 01 and placed it here.
+
+## Data Preparation
+
+------------------------------------------------------------------------
+
+The R packages we'll use for this analysis are:
+
+-   **sf**: used for importing, managing, and processing geospatial data
+
+-   **tidyverse**: a common but important collection of packages for data science tasks
+
+-   **tmap**: used for creating thematic maps for spatial data visualisaion, such as choropleth and bubble maps
+
+-   **spdep**: provides a collect of functions to create spatial weights matrix objects from polygons and point features.
+
+-   **funModeling** will be used for rapid Exploratory Data Analysis
+
+```{r}
+pacman::p_load(sf, tidyverse, tmap, spdep, funModeling)
+```
+
+Two data sets will be used in this study:
+
+-   Nigeria water point data file compiled in WPDx Data Standard from [Humanitarian Data Exchange Portal](https://data.humdata.org/dataset/geoboundaries-admin-boundaries-for-nigeria)
+
+-   Nigeria Administraive boundary data [WPDx Global Data Repositories](https://www.waterpointdata.org/access-data/)
+
+*We would start by using st_read()* and *filter()* to import the water point data
+
+```{r, eval=FALSE}
+wp <- st_read(dsn = "data/geospatial",
+              layer = "geo_export",
+              crs = 4326) %>%
+  filter(clean_coun == "Nigeria")
+```
+
+Next, we use write_rds() of readr package is used to save the extracted sf data table (i.e. wp) into an output file in rds data format. The output file is called *wp_nga.rds* and it is saved in *data*/geospatial/ sub-folder.
+
+```{r, eval=FALSE}
+write_rds(wp, "data/rds/wp_nga.rds")
+
+```
+
+Now, we would import the Nigeria LGA Boundary data into our R environment by using the code chunk below
+
+```{r, eval=FALSE}
+nga <- st_read(dsn = "data/geospatial",
+               layer = "geoBoundaries",
+               crs = 4326)
+```
+
+### Data Wrangling
+
+------------------------------------------------------------------------
+
+Data wrangling is the process of removing errors and combining complex data sets to make them more accessible and easier to analyze. Due to the rapid expansion of the amount of data and data sources available today, storing and organizing large quantities of data for analysis is becoming increasingly necessary.
+
+When viewing the nga data, we had observed that the data set contains NA values. these values have to be removed in order for us to categorise the values properly. we will be using *replace_na()* to recoding NA values into string
+
+```{r, eval=FALSE}
+wp_nga <- read_rds("data/rds/wp_nga.rds") %>%
+  mutate(status_cle = replace_na(status_cle, "Unknown"))
+```
+
+We can do a quick visual check on the breakdown of the categories using *freq().* we can observe that we have 9 different categories in the data set
+
+```{r, eval=FALSE}
+freq(data=wp_nga, 
+     input = 'status_cle')
+```
+
+### Extracting Water Point Data
+
+------------------------------------------------------------------------
+
+As this study intends to look at the spatial relationship of water points we would need to identify and filter the correct data from the nga data set. viewing the dataset, we can identify status_cle as the column with the data we need. We would want to separate the water point data into their different categories, importantly, we need to separate between functional and non-functional. we would start by extracting Functional Water Point from wp_nga. This will be done via the *filter()* function.
+
+```{r, eval=FALSE}
+#extracting functional waterpoint data
+wpt_functional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Functional", 
+             "Functional but not in use",
+             "Functional but needs repair"))
+
+#extracting non-functional water point data
+wpt_nonfunctional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Abandoned/Decommissioned", 
+             "Abandoned",
+             "Non-Functional",
+             "Non functional due to dry season",
+             "Non-Functional due to dry season"))
+
+#extracing unknown water point data
+wpt_unknown <- wp_nga %>%
+  filter(status_cle == "Unknown")
+```
+
+Similarly we do a quick visual check on the breakdown of the categories using *freq().* we now have 3 categories under wpt_functional, 5 categories under non-functional and an unknown.
+
+```{r, eval=FALSE}
+#check functional waterpoint category
+freq(data=wpt_functional, 
+     input = 'status_cle')
+
+#check non-functional waterpoint category
+freq(data=wpt_nonfunctional, 
+     input = 'status_cle')
+```
+
+### Performing point-in-polygon Count
+
+------------------------------------------------------------------------
+
+We want to add the new values created into a final data table that we can use for further analysis. we would use the *mutate()* function to create columns for (1) total water points, (2) functional waterpoints, (3) non-functional wateropint and (4) unknown waterpoints.
+
+```{r, eval=FALSE}
+nga_wp <- nga %>% 
+  mutate(`total wpt` = lengths(
+    st_intersects(nga, wp_nga))) %>%
+  mutate(`wpt functional` = lengths(
+    st_intersects(nga, wpt_functional))) %>%
+  mutate(`wpt non-functional` = lengths(
+    st_intersects(nga, wpt_nonfunctional))) %>%
+  mutate(`wpt unknown` = lengths(
+    st_intersects(nga, wpt_unknown)))
+```
+
+### Saving the Analytical Data Table
+
+------------------------------------------------------------------------
+
+After the new values had been added into nga_wp, we also want to know whats the percantage of functional vs non-functional water points. this can be done with the follow code chunk. we will also add the values into nga_wp before writing it to nga_wp.rds using *write_rds()*
+
+```{r, eval=FALSE}
+nga_wp <- nga_wp %>%
+  mutate(pct_functional = `wpt functional`/`total wpt`) %>%
+  mutate(`pct_non-functional` = `wpt non-functional`/`total wpt`)
+```
+
+```{r, eval=FALSE}
+# i had checked the nga_wp file and i'm aware that there are some NaN enteries and duplicate enteries, however i don't know enough R to get rid of them currently, hence i decided to leave them inside first
+write_rds(nga_wp, "data/rds/nga_wp.rds")
+```
+
+Important: Github does not accept file sizes larger than 100 mb. A this point, we had filtered the data from the original 4.8 gb down to 2.1gb. we now need to set all the codes thus far not to evaluate (except the library codes) so that we can delete the large original source files.
