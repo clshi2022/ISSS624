@@ -1,7 +1,6 @@
 ---
 title: "HandsOnEx02"
 editor: visual
-theme: materia
 format:
   html:
     code-fold: true

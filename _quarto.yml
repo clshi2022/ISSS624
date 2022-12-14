@@ -19,7 +19,8 @@ website:
         menu: 
           - text: In-class Exercise 1
             href: InClassEx\InClassEx01\InClassEx01.qmd
-          - text: In-class Exercise 2    
+          - text: In-class Exercise 2
+            href: InClassEx\InClassEx02\InClassEx02.qmd
           - text: In-class Exercise 3
             href: InClassEx\InClassEx03\InClassEx03.qmd
           - text: In-class Exercise 4
@@ -36,7 +37,7 @@ website:
 
 format:
   html:
-    theme: cosmo
+    theme: flatly
     css: styles.css
     toc: true
 

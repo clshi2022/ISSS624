@@ -1,7 +1,6 @@
 ---
 title: "In-clsss Exercise 1"
 editor: visual
-theme: materia
 format:
   html:
     code-fold: true

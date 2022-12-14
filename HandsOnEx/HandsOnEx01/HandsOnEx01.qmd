@@ -1,7 +1,6 @@
 ---
 title: "Hands-on Exercise 1"
 editor: visual
-theme: materia
 format:
   html:
     code-fold: true

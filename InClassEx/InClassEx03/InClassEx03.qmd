@@ -1,7 +1,6 @@
 ---
 title: "InClassEx03"
 editor: visual
-theme: materia
 format:
   html:
     code-fold: true

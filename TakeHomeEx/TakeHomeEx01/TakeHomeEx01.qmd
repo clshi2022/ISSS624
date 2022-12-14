@@ -1,7 +1,6 @@
 ---
 title: "Geospatial Analytics for Social Good - Nigeria Water Scarcity Issue"
 editor: visual
-theme: materia
 format:
   html:
     code-fold: true
